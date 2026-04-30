@@ -66,25 +66,25 @@ export default function UsersScreen() {
     }
     setSaving(true);
     try {
-      // Use a temporary client so owner's session is not replaced
+      // Use a temporary client so owner's session is not replaced.
+      // Pass name/role/company as metadata — the DB trigger reads these
+      // and creates the profile automatically (no client-side insert needed).
       const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       const { data: signUpData, error: signUpError } = await tempClient.auth.signUp({
         email: form.email.trim().toLowerCase(),
         password: form.password,
+        options: {
+          data: {
+            full_name: form.full_name.trim(),
+            role: form.role,
+            company_id: me?.company_id,
+          },
+        },
       });
       if (signUpError) throw signUpError;
 
       const userId = signUpData.user?.id;
       if (!userId) throw new Error('User ID not returned — try again');
-
-      // Upsert profile (handles race with DB trigger)
-      const { error: profileError } = await supabase.from('profiles').upsert({
-        id: userId,
-        company_id: me?.company_id,
-        role: form.role,
-        full_name: form.full_name.trim(),
-      });
-      if (profileError) throw profileError;
 
       setToast({ message: `✓ ${form.full_name.trim()} added!`, type: 'success' });
       resetForm();
