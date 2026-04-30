@@ -8,10 +8,10 @@ import { supabase } from '../../lib/supabase';
 import { DCListItem } from '../../components/DCListItem';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { theme } from '../../constants/theme';
-import { ProductionLog } from '../../types';
+import { ProductionLog, ProductionLogItem } from '../../types';
 
 export default function ProductionLogsScreen() {
-  const [records, setRecords] = useState<ProductionLog[]>([]);
+  const [records, setRecords] = useState<(ProductionLog & { production_log_items: ProductionLogItem[] })[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -23,8 +23,26 @@ export default function ProductionLogsScreen() {
       .select('*, jobs(*, clients(*))')
       .order('created_at', { ascending: false });
     if (!showAll) query = query.gte('created_at', today);
-    const { data } = await query;
-    setRecords(data ?? []);
+    const { data: logs } = await query;
+
+    if (!logs || logs.length === 0) {
+      setRecords([]);
+      setLoading(false);
+      return;
+    }
+
+    // Fetch log items with job details for these logs
+    const { data: items } = await supabase
+      .from('production_log_items')
+      .select('*, jobs(item_name)')
+      .in('log_id', logs.map((l) => l.id));
+
+    const merged = logs.map((log) => ({
+      ...log,
+      production_log_items: (items ?? []).filter((item) => item.log_id === log.id),
+    }));
+
+    setRecords(merged);
     setLoading(false);
   }, [showAll, today]);
 
@@ -51,21 +69,44 @@ export default function ProductionLogsScreen() {
           <Text style={styles.empty}>No production logs {showAll ? '' : 'today'}.</Text>
         )}
         {records.map((r) => {
+          const hasItems = r.production_log_items.length > 0;
           const total = r.good_qty + r.reject_qty;
           const eff = total > 0 ? ((r.good_qty / total) * 100).toFixed(1) : '—';
+
+          // Build line items from production_log_items if present
+          const lineItems = hasItems
+            ? r.production_log_items.map((item) => {
+                const g = item.good_qty;
+                const rj = item.reject_qty;
+                const t = g + rj;
+                const e = t > 0 ? `${((g / t) * 100).toFixed(0)}%` : '—';
+                return {
+                  desc: (item.jobs as any)?.item_name ?? `Job ${item.job_id.slice(0, 6)}`,
+                  qty: `${g}+${rj} · ${e}`,
+                  amount: `${item.material_consumed_kg} KG`,
+                };
+              })
+            : undefined;
+
+          // Summary label: multi-job or single
+          const jobLabel = hasItems && r.production_log_items.length > 1
+            ? `${r.production_log_items.length} jobs`
+            : r.jobs?.item_name ?? 'Production';
+
           return (
             <DCListItem
               key={r.id}
               date={new Date(r.created_at).toLocaleDateString('en-IN')}
-              reference={r.jobs?.item_name ?? 'Production'}
+              reference={jobLabel}
               party={`${r.good_qty} good / ${r.reject_qty} reject`}
               quantity={`${eff}%`}
+              lineItems={lineItems}
               details={{
                 'Material Consumed': `${r.material_consumed_kg} KG`,
                 'Good Qty': r.good_qty,
                 'Reject Qty': r.reject_qty,
                 'Efficiency': `${eff}%`,
-                'Notes': r.notes,
+                'Notes': !hasItems ? r.notes : undefined,
               }}
             />
           );

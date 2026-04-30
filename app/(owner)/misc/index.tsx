@@ -6,10 +6,10 @@ import { theme } from '../../../constants/theme';
 
 const ITEMS = [
   {
-    route: '/(owner)/misc/suppliers' as const,
+    route: '/(owner)/misc/vendors' as const,
     icon: '🏭',
-    label: 'Suppliers',
-    desc: 'Add, view and remove raw material suppliers',
+    label: 'Vendors',
+    desc: 'Manage suppliers, clients and trade partners',
   },
   {
     route: '/(owner)/misc/users' as const,

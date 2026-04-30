@@ -8,7 +8,9 @@ import { supabase } from '../../lib/supabase';
 import { DCListItem } from '../../components/DCListItem';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { theme } from '../../constants/theme';
-import { OutboundDC } from '../../types';
+import { OutboundDC, ProductItem } from '../../types';
+import { useAuthStore } from '../../stores/authStore';
+import { buildOutboundHTML, printOrDownload } from '../../lib/challanPdf';
 
 type QuickDate = 'today' | 'week' | 'month' | 'all' | 'custom';
 type SortBy = 'newest' | 'oldest' | 'qty_desc' | 'qty_asc';
@@ -87,7 +89,13 @@ const inlineDateStyle = {
 };
 
 export default function OutboundDCsScreen() {
-  const [records, setRecords] = useState<OutboundDC[]>([]);
+  const { profile } = useAuthStore();
+  const company = {
+    name:    (profile?.companies as any)?.name    ?? '',
+    gstin:   (profile?.companies as any)?.gstin   ?? '',
+    address: (profile?.companies as any)?.address ?? '',
+  };
+  const [records, setRecords] = useState<(OutboundDC & { product_items: ProductItem[] })[]>([]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch]     = useState('');
@@ -100,11 +108,29 @@ export default function OutboundDCsScreen() {
   const today = new Date().toISOString().split('T')[0];
 
   const load = useCallback(async () => {
-    const { data } = await supabase
+    const { data: dcs } = await supabase
       .from('outbound_dcs')
-      .select('*, clients(*)')
+      .select('*, vendors!client_id(*)')
       .order('dc_date', { ascending: false });
-    setRecords(data ?? []);
+
+    if (!dcs || dcs.length === 0) {
+      setRecords([]);
+      setLoading(false);
+      return;
+    }
+
+    const { data: items } = await supabase
+      .from('product_items')
+      .select('*')
+      .eq('dc_type', 'outbound')
+      .in('outbound_dc_id', dcs.map((d) => d.id));
+
+    const merged = dcs.map((dc) => ({
+      ...dc,
+      product_items: (items ?? []).filter((item) => item.outbound_dc_id === dc.id),
+    }));
+
+    setRecords(merged);
     setLoading(false);
   }, []);
 
@@ -138,7 +164,7 @@ export default function OutboundDCsScreen() {
       result = result.filter((r) =>
         r.item_desc?.toLowerCase().includes(q) ||
         r.dc_no?.toLowerCase().includes(q) ||
-        (r.clients as any)?.name?.toLowerCase().includes(q)
+        (r.vendors as any)?.name?.toLowerCase().includes(q)
       );
     }
 
@@ -275,24 +301,46 @@ export default function OutboundDCsScreen() {
             {search ? `No results for "${search}"` : 'No outbound DCs found.'}
           </Text>
         ) : (
-          filtered.map((r) => (
-            <DCListItem
-              key={r.id}
-              date={r.dc_date}
-              reference={`DC #${r.dc_no}`}
-              party={(r.clients as any)?.name ?? '—'}
-              quantity={`${r.quantity} pcs`}
-              details={{
-                'Item':        r.item_desc,
-                'HSN':         r.hsn_code,
-                'Value':       r.value ? `₹${r.value.toLocaleString('en-IN')}` : undefined,
-                'Vehicle':     r.vehicle_no,
-                'E-Way Bill':  r.eway_bill_no,
-                'Party DC No': r.party_dc_no,
-                'Order No':    r.order_no,
-              }}
-            />
-          ))
+          filtered.map((r) => {
+            const hasItems = r.product_items.length > 0;
+            const lineItems = hasItems
+              ? r.product_items.map((item) => ({
+                  desc: item.item_desc,
+                  qty: `${item.quantity} pcs`,
+                  amount: item.value ? `₹${item.value.toLocaleString('en-IN')}` : undefined,
+                  hsn: item.hsn_code,
+                }))
+              : undefined;
+
+            return (
+              <DCListItem
+                key={r.id}
+                date={r.dc_date}
+                reference={`DC #${r.dc_no}`}
+                party={(r.vendors as any)?.name ?? '—'}
+                quantity={`${r.quantity} pcs`}
+                lineItems={lineItems}
+                details={{
+                  'Item':        hasItems ? undefined : r.item_desc,
+                  'Value':       r.value ? `₹${r.value.toLocaleString('en-IN')}` : undefined,
+                  'Vehicle':     r.vehicle_no,
+                  'E-Way Bill':  r.eway_bill_no,
+                  'Party DC No': r.party_dc_no,
+                  'Order No':    r.order_no,
+                }}
+                onDownload={() => {
+                  const html = buildOutboundHTML(
+                    { dc_no: r.dc_no, dc_date: r.dc_date, vehicle_no: r.vehicle_no, eway_bill_no: r.eway_bill_no, party_dc_no: r.party_dc_no, order_no: r.order_no },
+                    { name: (r.vendors as any)?.name ?? '', gstin: (r.vendors as any)?.gstin, address: (r.vendors as any)?.address },
+                    hasItems ? r.product_items.map((i) => ({ item_desc: i.item_desc, hsn_code: i.hsn_code, quantity: i.quantity, value: i.value }))
+                             : [{ item_desc: r.item_desc, quantity: r.quantity, value: r.value ?? undefined }],
+                    company,
+                  );
+                  printOrDownload(html, `DC-${r.dc_no}.pdf`);
+                }}
+              />
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>
