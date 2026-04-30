@@ -21,6 +21,17 @@ interface DashboardData {
 export default function OwnerDashboard() {
   const { profile } = useAuthStore();
   const today = new Date().toISOString().split('T')[0];
+
+  const greeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  const dateStr = new Date().toLocaleDateString('en-IN', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  });
   const [data, setData] = useState<DashboardData>({
     materialIn: 0, goodProduction: 0, rejects: 0,
     efficiency: null, outboundCount: 0, recentActivity: [],
@@ -71,9 +82,15 @@ export default function OwnerDashboard() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={styles.topRow}>
-          <Text style={styles.sub}>
-            {profile?.companies?.name ?? 'FactoryFlow'} · Today
-          </Text>
+          <View>
+            <Text style={styles.greeting}>
+              {greeting()}, {profile?.full_name?.split(' ')[0] ?? 'there'} 👋
+            </Text>
+            <Text style={styles.dateText}>{dateStr}</Text>
+            <Text style={styles.sub}>
+              {profile?.companies?.name ?? 'FactoryFlow'} · Today's summary
+            </Text>
+          </View>
         </View>
 
         <View style={[styles.cardsGrid, isWeb && styles.cardsGridWeb]}>
@@ -118,8 +135,18 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: theme.spacing.xl,
   },
+  greeting: {
+    fontSize: theme.fontSize.xxl,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+  },
+  dateText: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
   title: { fontSize: theme.fontSize.xxl, fontWeight: theme.fontWeight.bold },
-  sub: { fontSize: theme.fontSize.sm, color: theme.colors.textSecondary, marginTop: 2 },
+  sub: { fontSize: theme.fontSize.sm, color: theme.colors.textSecondary, marginTop: 6 },
   signout: { fontSize: theme.fontSize.sm, color: theme.colors.danger },
   cardsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.md, marginBottom: theme.spacing.xl },
   cardsGridWeb: { flexDirection: 'row' },
