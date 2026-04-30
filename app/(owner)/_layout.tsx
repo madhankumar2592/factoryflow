@@ -58,6 +58,14 @@ export default function OwnerLayout() {
           headerShown: false,
         }}
       />
+
+      {/* Hide old top-level suppliers screen (moved into misc/) */}
+      <Tabs.Screen name="suppliers" options={{ href: null }} />
+
+      {/* Hide misc sub-screens from tab bar — managed by the nested Stack */}
+      <Tabs.Screen name="misc/index" options={{ href: null }} />
+      <Tabs.Screen name="misc/suppliers" options={{ href: null }} />
+      <Tabs.Screen name="misc/users" options={{ href: null }} />
     </Tabs>
   );
 }
