@@ -49,12 +49,13 @@ export default function OwnerLayout() {
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>📤</Text>,
         }}
       />
+      {/* Settings tab — name must match the exact route Expo Router generates */}
       <Tabs.Screen
-        name="misc"
+        name="misc/index"
         options={{
-          title: 'Settings',
-          tabBarLabel: 'Settings',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>⚙️</Text>,
+          title: 'Tools',
+          tabBarLabel: 'Tools',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🔧</Text>,
           headerShown: false,
         }}
       />
@@ -62,8 +63,7 @@ export default function OwnerLayout() {
       {/* Hide old top-level suppliers screen (moved into misc/) */}
       <Tabs.Screen name="suppliers" options={{ href: null }} />
 
-      {/* Hide misc sub-screens from tab bar — managed by the nested Stack */}
-      <Tabs.Screen name="misc/index" options={{ href: null }} />
+      {/* Hide misc sub-screens — navigated to via the nested Stack, not tab bar */}
       <Tabs.Screen name="misc/suppliers" options={{ href: null }} />
       <Tabs.Screen name="misc/users" options={{ href: null }} />
     </Tabs>

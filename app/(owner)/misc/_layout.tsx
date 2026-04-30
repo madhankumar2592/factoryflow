@@ -24,7 +24,7 @@ export default function MiscLayout() {
         ),
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Settings' }} />
+      <Stack.Screen name="index" options={{ title: 'Tools' }} />
       <Stack.Screen name="suppliers" options={{ title: 'Suppliers' }} />
       <Stack.Screen name="users" options={{ title: 'Users' }} />
     </Stack>

@@ -25,7 +25,7 @@ export default function MiscIndex() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <View style={styles.container}>
-        <Text style={styles.sectionLabel}>ADMIN</Text>
+        <Text style={styles.sectionLabel}>ADMIN TOOLS</Text>
         {ITEMS.map((item) => (
           <TouchableOpacity
             key={item.route}
