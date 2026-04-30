@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
-  RefreshControl, TouchableOpacity, TextInput,
+  RefreshControl, TouchableOpacity, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
@@ -10,30 +10,91 @@ import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { theme } from '../../constants/theme';
 import { OutboundDC } from '../../types';
 
-type DateFilter = 'today' | 'week' | 'month' | 'all';
+type QuickDate = 'today' | 'week' | 'month' | 'all' | 'custom';
 type SortBy = 'newest' | 'oldest' | 'qty_desc' | 'qty_asc';
 
-const DATE_FILTERS: { key: DateFilter; label: string }[] = [
-  { key: 'today', label: 'Today' },
-  { key: 'week', label: 'This Week' },
-  { key: 'month', label: 'This Month' },
-  { key: 'all', label: 'All' },
+const QUICK_DATES: { key: QuickDate; label: string }[] = [
+  { key: 'today',  label: 'Today' },
+  { key: 'week',   label: 'This Week' },
+  { key: 'month',  label: 'This Month' },
+  { key: 'all',    label: 'All' },
+  { key: 'custom', label: '📅 Custom' },
 ];
 
 const SORT_OPTIONS: { key: SortBy; label: string }[] = [
-  { key: 'newest', label: 'Newest' },
-  { key: 'oldest', label: 'Oldest' },
-  { key: 'qty_desc', label: 'Qty ↓' },
-  { key: 'qty_asc', label: 'Qty ↑' },
+  { key: 'newest',   label: 'Newest first' },
+  { key: 'oldest',   label: 'Oldest first' },
+  { key: 'qty_desc', label: 'Qty: High → Low' },
+  { key: 'qty_asc',  label: 'Qty: Low → High' },
 ];
+
+/** Native HTML date input — renders a calendar popup on web */
+function DatePicker({
+  label, value, onChange,
+}: { label: string; value: string; onChange: (v: string) => void }) {
+  if (Platform.OS !== 'web') return null;
+  return (
+    <View style={dpStyles.wrap}>
+      <Text style={dpStyles.label}>{label}</Text>
+      {/* @ts-ignore — web-only JSX */}
+      <input
+        type="date"
+        value={value}
+        onChange={(e: any) => onChange(e.target.value)}
+        style={{
+          height: 40,
+          border: '1.5px solid #000000',
+          borderRadius: 12,
+          paddingLeft: 12,
+          paddingRight: 12,
+          fontSize: 14,
+          fontFamily: 'inherit',
+          color: value ? '#000000' : '#AEAEB2',
+          backgroundColor: '#FFFFFF',
+          cursor: 'pointer',
+          outline: 'none',
+          width: '100%',
+          boxSizing: 'border-box',
+        }}
+      />
+    </View>
+  );
+}
+const dpStyles = StyleSheet.create({
+  wrap: { flex: 1 },
+  label: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.textSecondary,
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+});
+
+const inlineDateStyle = {
+  height: 36,
+  border: '1.5px solid #000000',
+  borderRadius: 18,
+  paddingLeft: 12,
+  paddingRight: 12,
+  fontSize: 14,
+  fontFamily: 'inherit',
+  color: '#000000',
+  backgroundColor: '#FFFFFF',
+  cursor: 'pointer',
+  outline: 'none',
+  width: 140,
+};
 
 export default function OutboundDCsScreen() {
   const [records, setRecords] = useState<OutboundDC[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [search, setSearch] = useState('');
-  const [dateFilter, setDateFilter] = useState<DateFilter>('today');
-  const [sortBy, setSortBy] = useState<SortBy>('newest');
+  const [search, setSearch]     = useState('');
+  const [quickDate, setQuickDate] = useState<QuickDate>('today');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate]     = useState('');
+  const [sortBy, setSortBy]     = useState<SortBy>('newest');
   const [showSort, setShowSort] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
@@ -54,20 +115,24 @@ export default function OutboundDCsScreen() {
     let result = [...records];
 
     // Date filter
-    const now = new Date();
-    if (dateFilter === 'today') {
-      result = result.filter((r) => r.dc_date === today);
-    } else if (dateFilter === 'week') {
-      const from = new Date(now);
-      from.setDate(from.getDate() - 7);
-      result = result.filter((r) => new Date(r.dc_date) >= from);
-    } else if (dateFilter === 'month') {
-      const from = new Date(now);
-      from.setMonth(from.getMonth() - 1);
-      result = result.filter((r) => new Date(r.dc_date) >= from);
+    if (quickDate === 'custom') {
+      if (fromDate) result = result.filter((r) => r.dc_date >= fromDate);
+      if (toDate)   result = result.filter((r) => r.dc_date <= toDate);
+    } else {
+      const now = new Date();
+      if (quickDate === 'today') {
+        result = result.filter((r) => r.dc_date === today);
+      } else if (quickDate === 'week') {
+        const from = new Date(now); from.setDate(from.getDate() - 7);
+        result = result.filter((r) => new Date(r.dc_date) >= from);
+      } else if (quickDate === 'month') {
+        const from = new Date(now); from.setMonth(from.getMonth() - 1);
+        result = result.filter((r) => new Date(r.dc_date) >= from);
+      }
+      // 'all' → no date filter
     }
 
-    // Search — by item name, DC number, or client name
+    // Search
     const q = search.trim().toLowerCase();
     if (q) {
       result = result.filter((r) =>
@@ -79,15 +144,15 @@ export default function OutboundDCsScreen() {
 
     // Sort
     result.sort((a, b) => {
-      if (sortBy === 'newest') return new Date(b.dc_date).getTime() - new Date(a.dc_date).getTime();
-      if (sortBy === 'oldest') return new Date(a.dc_date).getTime() - new Date(b.dc_date).getTime();
+      if (sortBy === 'newest')   return new Date(b.dc_date).getTime() - new Date(a.dc_date).getTime();
+      if (sortBy === 'oldest')   return new Date(a.dc_date).getTime() - new Date(b.dc_date).getTime();
       if (sortBy === 'qty_desc') return (b.quantity || 0) - (a.quantity || 0);
-      if (sortBy === 'qty_asc') return (a.quantity || 0) - (b.quantity || 0);
+      if (sortBy === 'qty_asc')  return (a.quantity || 0) - (b.quantity || 0);
       return 0;
     });
 
     return result;
-  }, [records, search, dateFilter, sortBy, today]);
+  }, [records, search, quickDate, fromDate, toDate, sortBy, today]);
 
   const totalQty = filtered.reduce((s, r) => s + (r.quantity || 0), 0);
 
@@ -95,59 +160,104 @@ export default function OutboundDCsScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Search bar */}
-      <View style={styles.searchRow}>
+
+      {/* ── Search bar ── */}
+      <View style={styles.searchBox}>
         <Text style={styles.searchIcon}>🔍</Text>
-        <TextInput
-          style={styles.searchInput}
+        {/* @ts-ignore */}
+        <input
+          placeholder="Search product, DC no, client…"
           value={search}
-          onChangeText={setSearch}
-          placeholder="Search by product, DC no, client…"
-          placeholderTextColor={theme.colors.textTertiary}
-          clearButtonMode="while-editing"
+          onChange={(e: any) => setSearch(e.target.value)}
+          style={{
+            flex: 1,
+            border: 'none',
+            outline: 'none',
+            fontSize: 16,
+            color: '#000000',
+            backgroundColor: 'transparent',
+            fontFamily: 'inherit',
+          }}
         />
         {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Text style={styles.clearBtn}>✕</Text>
+          <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
+            <Text style={styles.clearBtnText}>✕</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Date filter pills + Sort button */}
-      <View style={styles.toolbar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillScroll}>
-          {DATE_FILTERS.map((f) => (
+      {/* ── Date filter pills + inline custom pickers ── */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.pillRow}
+      >
+        {QUICK_DATES.map((d) => {
+          const active = quickDate === d.key;
+          return (
             <TouchableOpacity
-              key={f.key}
-              style={[styles.pill, dateFilter === f.key && styles.pillActive]}
-              onPress={() => setDateFilter(f.key)}
+              key={d.key}
+              style={[styles.pill, active && styles.pillActive]}
+              onPress={() => {
+                setQuickDate(d.key);
+                if (d.key !== 'custom') { setFromDate(''); setToDate(''); }
+              }}
             >
-              <Text style={[styles.pillText, dateFilter === f.key && styles.pillTextActive]}>
-                {f.label}
+              <Text style={[styles.pillText, active && styles.pillTextActive]}>
+                {d.label}
               </Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          );
+        })}
+
+        {/* Inline date pickers — only when Custom is active */}
+        {quickDate === 'custom' && (
+          <View style={styles.inlineDates}>
+            {/* @ts-ignore */}
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e: any) => setFromDate(e.target.value)}
+              style={inlineDateStyle}
+            />
+            <Text style={styles.dateSep}>→</Text>
+            {/* @ts-ignore */}
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e: any) => setToDate(e.target.value)}
+              style={inlineDateStyle}
+            />
+          </View>
+        )}
+      </ScrollView>
+
+      {/* ── Sort + summary row ── */}
+      <View style={styles.sortSummaryRow}>
+        <Text style={styles.summaryText}>
+          {filtered.length} {filtered.length === 1 ? 'record' : 'records'}
+          {totalQty > 0 ? `  ·  ${totalQty.toLocaleString('en-IN')} pcs` : ''}
+        </Text>
         <TouchableOpacity
           style={[styles.sortBtn, showSort && styles.sortBtnActive]}
           onPress={() => setShowSort((v) => !v)}
         >
           <Text style={[styles.sortBtnText, showSort && styles.sortBtnTextActive]}>
-            ⇅ Sort
+            ⇅ {SORT_OPTIONS.find((s) => s.key === sortBy)?.label ?? 'Sort'}
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Sort options row */}
+      {/* Sort dropdown */}
       {showSort && (
-        <View style={styles.sortRow}>
+        <View style={styles.sortDropdown}>
           {SORT_OPTIONS.map((s) => (
             <TouchableOpacity
               key={s.key}
-              style={[styles.sortPill, sortBy === s.key && styles.sortPillActive]}
+              style={[styles.sortOption, sortBy === s.key && styles.sortOptionActive]}
               onPress={() => { setSortBy(s.key); setShowSort(false); }}
             >
-              <Text style={[styles.sortPillText, sortBy === s.key && styles.sortPillTextActive]}>
+              <Text style={[styles.sortOptionText, sortBy === s.key && styles.sortOptionTextActive]}>
                 {s.label}
               </Text>
             </TouchableOpacity>
@@ -155,22 +265,14 @@ export default function OutboundDCsScreen() {
         </View>
       )}
 
-      {/* Results summary */}
-      <View style={styles.summaryRow}>
-        <Text style={styles.summaryText}>
-          {filtered.length} {filtered.length === 1 ? 'record' : 'records'}
-          {filtered.length > 0 ? ` · ${totalQty.toLocaleString('en-IN')} pcs total` : ''}
-        </Text>
-      </View>
-
-      {/* List */}
+      {/* ── List ── */}
       <ScrollView
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {filtered.length === 0 ? (
           <Text style={styles.empty}>
-            {search ? `No results for "${search}"` : `No outbound DCs found.`}
+            {search ? `No results for "${search}"` : 'No outbound DCs found.'}
           </Text>
         ) : (
           filtered.map((r) => (
@@ -181,13 +283,13 @@ export default function OutboundDCsScreen() {
               party={(r.clients as any)?.name ?? '—'}
               quantity={`${r.quantity} pcs`}
               details={{
-                'Item': r.item_desc,
-                'HSN': r.hsn_code,
-                'Value': r.value ? `₹${r.value.toLocaleString('en-IN')}` : undefined,
-                'Vehicle': r.vehicle_no,
-                'E-Way Bill': r.eway_bill_no,
+                'Item':        r.item_desc,
+                'HSN':         r.hsn_code,
+                'Value':       r.value ? `₹${r.value.toLocaleString('en-IN')}` : undefined,
+                'Vehicle':     r.vehicle_no,
+                'E-Way Bill':  r.eway_bill_no,
                 'Party DC No': r.party_dc_no,
-                'Order No': r.order_no,
+                'Order No':    r.order_no,
               }}
             />
           ))
@@ -198,125 +300,95 @@ export default function OutboundDCsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: theme.colors.background },
+  safe: { flex: 1, backgroundColor: '#FFFFFF' },
 
-  searchRow: {
+  searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: theme.spacing.lg,
-    marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.xs,
-    backgroundColor: theme.colors.surface,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    borderWidth: 1.5,
+    borderColor: '#000000',
     borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
     paddingHorizontal: theme.spacing.md,
-    height: 44,
+    height: 48,
+    backgroundColor: '#FFFFFF',
   },
-  searchIcon: { fontSize: 15, marginRight: 8 },
-  searchInput: {
-    flex: 1,
-    fontSize: theme.fontSize.md,
-    color: theme.colors.textPrimary,
-  },
-  clearBtn: {
-    fontSize: 14,
-    color: theme.colors.textTertiary,
-    paddingLeft: 8,
-  },
+  searchIcon: { fontSize: 16, marginRight: 8 },
+  clearBtn: { paddingLeft: 8 },
+  clearBtnText: { fontSize: 14, color: theme.colors.textSecondary },
 
-  toolbar: {
+  pillRow: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  pillScroll: { flex: 1 },
-  pill: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 6,
-    borderRadius: theme.radius.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginRight: theme.spacing.xs,
-    backgroundColor: theme.colors.background,
-  },
-  pillActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  pillText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.textSecondary,
-    fontWeight: '500',
-  },
-  pillTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  sortBtn: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 6,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginLeft: theme.spacing.sm,
-  },
-  sortBtnActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  sortBtnText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.textSecondary,
-    fontWeight: '500',
-  },
-  sortBtnTextActive: {
-    color: '#FFFFFF',
-  },
-
-  sortRow: {
-    flexDirection: 'row',
     gap: theme.spacing.xs,
+  },
+  pill: {
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#000000',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillActive: { backgroundColor: '#000000' },
+  pillText: { fontSize: theme.fontSize.sm, fontWeight: '600', color: '#000000' },
+  pillTextActive: { color: '#FFFFFF' },
+
+  inlineDates: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  dateSep: { fontSize: 14, color: theme.colors.textSecondary, paddingHorizontal: 4 },
+
+  sortSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-    backgroundColor: theme.colors.surface,
+    paddingVertical: theme.spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  summaryText: { fontSize: theme.fontSize.sm, color: theme.colors.textSecondary, fontWeight: '500' },
+  sortBtn: {
+    height: 36,
+    paddingHorizontal: theme.spacing.md,
+    borderWidth: 1.5,
+    borderColor: '#000000',
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sortBtnActive: { backgroundColor: '#000000' },
+  sortBtnText: { fontSize: theme.fontSize.sm, fontWeight: '600', color: '#000000' },
+  sortBtnTextActive: { color: '#FFFFFF' },
+
+  sortDropdown: {
+    marginHorizontal: theme.spacing.lg,
+    borderWidth: 1.5,
+    borderColor: '#000000',
+    borderRadius: theme.radius.md,
+    backgroundColor: '#FFFFFF',
+    marginBottom: theme.spacing.xs,
+    overflow: 'hidden',
+  },
+  sortOption: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
-  sortPill: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 5,
-    borderRadius: theme.radius.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-  },
-  sortPillActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  sortPillText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.textSecondary,
-    fontWeight: '500',
-  },
-  sortPillTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-
-  summaryRow: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xs,
-  },
-  summaryText: {
-    fontSize: theme.fontSize.xs,
-    color: theme.colors.textTertiary,
-    fontWeight: '500',
-  },
+  sortOptionActive: { backgroundColor: '#000000' },
+  sortOptionText: { fontSize: theme.fontSize.md, color: '#000000', fontWeight: '500' },
+  sortOptionTextActive: { color: '#FFFFFF', fontWeight: '700' },
 
   list: { padding: theme.spacing.lg, paddingTop: theme.spacing.sm },
   empty: {
