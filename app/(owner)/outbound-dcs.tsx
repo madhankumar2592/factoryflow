@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
-  RefreshControl, TouchableOpacity, Platform,
+  RefreshControl, TouchableOpacity, Platform, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
@@ -338,6 +338,22 @@ export default function OutboundDCsScreen() {
                     company,
                   );
                   printOrDownload(html, `DC-${r.dc_no}.pdf`);
+                }}
+                onDelete={() => {
+                  Alert.alert(
+                    'Delete DC',
+                    `Delete DC #${r.dc_no}? This cannot be undone.`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete', style: 'destructive',
+                        onPress: async () => {
+                          await supabase.from('outbound_dcs').delete().eq('id', r.id);
+                          load();
+                        },
+                      },
+                    ]
+                  );
                 }}
               />
             );

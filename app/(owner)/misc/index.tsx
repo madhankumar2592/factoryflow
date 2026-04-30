@@ -12,6 +12,12 @@ const ITEMS = [
     desc: 'Update company name, GSTIN, address and phone',
   },
   {
+    route: '/(owner)/misc/jobs' as const,
+    icon: '⚙️',
+    label: 'Jobs',
+    desc: 'View and manage production jobs',
+  },
+  {
     route: '/(owner)/misc/vendors' as const,
     icon: '🏭',
     label: 'Vendors',

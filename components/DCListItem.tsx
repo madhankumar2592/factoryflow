@@ -18,12 +18,13 @@ interface DCListItemProps {
   details?: Record<string, string | number | undefined>;
   lineItems?: LineItemDisplay[];
   onDownload?: () => void;
+  onDelete?: () => void;
 }
 
 // Suppress browser focus ring on web
 const noOutline = { outline: 'none' };
 
-export function DCListItem({ date, reference, party, quantity, details, lineItems, onDownload }: DCListItemProps) {
+export function DCListItem({ date, reference, party, quantity, details, lineItems, onDownload, onDelete }: DCListItemProps) {
   const [expanded, setExpanded] = useState(false);
   const [expandedLineItems, setExpandedLineItems] = useState<Set<number>>(new Set());
 
@@ -118,6 +119,16 @@ export function DCListItem({ date, reference, party, quantity, details, lineItem
               onPress={(e) => { e.stopPropagation?.(); onDownload(); }}
             >
               <Text style={styles.downloadTxt}>🖨️  Print / Download PDF</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Delete button */}
+          {onDelete && (
+            <TouchableOpacity
+              style={[styles.deleteBtn, Platform.OS === 'web' && (noOutline as any)]}
+              onPress={(e) => { e.stopPropagation?.(); onDelete(); }}
+            >
+              <Text style={styles.deleteTxt}>🗑  Delete</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -220,6 +231,19 @@ const styles = StyleSheet.create({
   downloadTxt: {
     fontSize: theme.fontSize.sm,
     color: theme.colors.primary,
+    fontWeight: '600',
+  },
+  deleteBtn: {
+    marginTop: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.danger,
+    borderRadius: theme.radius.md,
+    paddingVertical: theme.spacing.sm,
+    alignItems: 'center',
+  },
+  deleteTxt: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.danger,
     fontWeight: '600',
   },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between' },

@@ -49,6 +49,14 @@ export default function OwnerLayout() {
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>📤</Text>,
         }}
       />
+      <Tabs.Screen
+        name="reports"
+        options={{
+          title: 'Reports',
+          tabBarLabel: 'Reports',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>📈</Text>,
+        }}
+      />
       {/* Tools tab — "misc" matches the folder name, headerShown:false lets the nested Stack own the header */}
       <Tabs.Screen
         name="misc"
@@ -64,6 +72,7 @@ export default function OwnerLayout() {
       <Tabs.Screen name="misc/vendors" options={{ href: null }} />
       <Tabs.Screen name="misc/users" options={{ href: null }} />
       <Tabs.Screen name="misc/company" options={{ href: null }} />
+      <Tabs.Screen name="misc/jobs" options={{ href: null }} />
     </Tabs>
   );
 }

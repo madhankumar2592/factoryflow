@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { DCListItem } from '../../components/DCListItem';
@@ -114,6 +114,22 @@ export default function InboundDCsScreen() {
                   company,
                 );
                 printOrDownload(html, `Challan-${r.challan_no}.pdf`);
+              }}
+              onDelete={() => {
+                Alert.alert(
+                  'Delete Challan',
+                  `Delete Challan #${r.challan_no}? This cannot be undone.`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Delete', style: 'destructive',
+                      onPress: async () => {
+                        await supabase.from('inbound_dcs').delete().eq('id', r.id);
+                        load();
+                      },
+                    },
+                  ]
+                );
               }}
             />
           );
