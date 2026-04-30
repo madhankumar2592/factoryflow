@@ -49,9 +49,9 @@ export default function OwnerLayout() {
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>📤</Text>,
         }}
       />
-      {/* Settings tab — name must match the exact route Expo Router generates */}
+      {/* Tools tab — "misc" matches the folder name, headerShown:false lets the nested Stack own the header */}
       <Tabs.Screen
-        name="misc/index"
+        name="misc"
         options={{
           title: 'Tools',
           tabBarLabel: 'Tools',
@@ -60,10 +60,10 @@ export default function OwnerLayout() {
         }}
       />
 
-      {/* Hide old top-level suppliers screen (moved into misc/) */}
+      {/* Hide old top-level suppliers screen */}
       <Tabs.Screen name="suppliers" options={{ href: null }} />
 
-      {/* Hide misc sub-screens — navigated to via the nested Stack, not tab bar */}
+      {/* Hide misc sub-screens — managed by the nested Stack inside misc/ */}
       <Tabs.Screen name="misc/suppliers" options={{ href: null }} />
       <Tabs.Screen name="misc/users" options={{ href: null }} />
     </Tabs>
