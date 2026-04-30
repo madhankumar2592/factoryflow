@@ -25,7 +25,7 @@ export default function ProductionLogForm() {
   useEffect(() => {
     Promise.all([
       supabase.from('jobs').select('*, vendors!client_id(*)').eq('status', 'running'),
-      supabase.from('inbound_dcs').select('*, suppliers(*)').order('created_at', { ascending: false }).limit(10),
+      supabase.from('inbound_dcs').select('*, vendors!supplier_id(*)').order('created_at', { ascending: false }).limit(10),
     ]).then(([j, d]) => { setJobs(j.data ?? []); setRecentDCs(d.data ?? []); });
   }, []);
 

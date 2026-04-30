@@ -43,9 +43,9 @@ export default function OwnerDashboard() {
       supabase.from('inbound_dcs').select('quantity_kg').eq('challan_date', today),
       supabase.from('production_logs').select('good_qty, reject_qty').gte('created_at', today),
       supabase.from('outbound_dcs').select('id', { count: 'exact', head: true }).eq('dc_date', today),
-      supabase.from('inbound_dcs').select('challan_no, challan_date, suppliers(name), quantity_kg').order('created_at', { ascending: false }).limit(5),
+      supabase.from('inbound_dcs').select('challan_no, challan_date, vendors!supplier_id(name), quantity_kg').order('created_at', { ascending: false }).limit(5),
       supabase.from('production_logs').select('good_qty, reject_qty, created_at, jobs(item_name)').order('created_at', { ascending: false }).limit(3),
-      supabase.from('outbound_dcs').select('dc_no, dc_date, clients(name), quantity').order('created_at', { ascending: false }).limit(3),
+      supabase.from('outbound_dcs').select('dc_no, dc_date, vendors!client_id(name), quantity').order('created_at', { ascending: false }).limit(3),
     ]);
 
     const materialIn = (inbRes.data ?? []).reduce((s, r) => s + (r.quantity_kg || 0), 0);
@@ -56,13 +56,13 @@ export default function OwnerDashboard() {
 
     const recentActivity = [
       ...(actInb.data ?? []).map((r: any) => ({
-        type: 'Inbound DC', ref: `#${r.challan_no}`, party: r.suppliers?.name ?? '—', qty: `${r.quantity_kg} KG`,
+        type: 'Inbound DC', ref: `#${r.challan_no}`, party: r.vendors?.name ?? '—', qty: `${r.quantity_kg} KG`,
       })),
       ...(actProd.data ?? []).map((r: any) => ({
         type: 'Production', ref: r.jobs?.item_name ?? '—', party: `${r.good_qty} good / ${r.reject_qty} reject`, qty: '',
       })),
       ...(actOut.data ?? []).map((r: any) => ({
-        type: 'Outbound DC', ref: `#${r.dc_no}`, party: r.clients?.name ?? '—', qty: `${r.quantity} pcs`,
+        type: 'Outbound DC', ref: `#${r.dc_no}`, party: r.vendors?.name ?? '—', qty: `${r.quantity} pcs`,
       })),
     ];
 

@@ -20,7 +20,7 @@ export default function ProductionLogsScreen() {
   const load = useCallback(async () => {
     let query = supabase
       .from('production_logs')
-      .select('*, jobs(*, clients(*))')
+      .select('*, jobs(*, vendors!client_id(*))')
       .order('created_at', { ascending: false });
     if (!showAll) query = query.gte('created_at', today);
     const { data: logs } = await query;

@@ -39,26 +39,23 @@ DROP FUNCTION IF EXISTS handle_new_user();
 -- Example: "Mold Tech Diecasting Pvt Ltd"
 -- =============================================================================
 CREATE TABLE companies (
-  id         UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  id         BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   name       TEXT        NOT NULL,
   gstin      TEXT,
   address    TEXT,
+  phone      TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
 
--- Users can only read their own company
-CREATE POLICY "companies_select" ON companies FOR SELECT
-  USING (id IN (
-    SELECT company_id FROM profiles WHERE id = auth.uid()
-  ));
+-- Anyone (incl. anon) can INSERT a company row during self-serve signup.
+-- The owner profile is linked immediately after via the handle_new_user() trigger.
+CREATE POLICY "companies_insert_signup" ON companies FOR INSERT
+  WITH CHECK (true);
 
--- Only owners can update company details
-CREATE POLICY "companies_update" ON companies FOR UPDATE
-  USING (id IN (
-    SELECT company_id FROM profiles WHERE id = auth.uid() AND role = 'owner'
-  ));
+-- NOTE: companies_select and companies_update policies reference the profiles
+-- table and are therefore defined AFTER profiles is created (see below).
 
 
 -- =============================================================================
@@ -68,7 +65,7 @@ CREATE POLICY "companies_update" ON companies FOR UPDATE
 -- =============================================================================
 CREATE TABLE profiles (
   id         UUID        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  company_id UUID        NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  company_id BIGINT      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   role       TEXT        NOT NULL DEFAULT 'supervisor'
                          CHECK (role IN ('owner', 'supervisor')),
   full_name  TEXT        NOT NULL,
@@ -99,6 +96,17 @@ CREATE POLICY "profiles_delete" ON profiles FOR DELETE
     SELECT company_id FROM profiles WHERE id = auth.uid() AND role = 'owner'
   ));
 
+-- Companies policies that reference profiles (must come after profiles is created)
+CREATE POLICY "companies_select" ON companies FOR SELECT
+  USING (id IN (
+    SELECT company_id FROM profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "companies_update" ON companies FOR UPDATE
+  USING (id IN (
+    SELECT company_id FROM profiles WHERE id = auth.uid() AND role = 'owner'
+  ));
+
 
 -- =============================================================================
 -- 3. VENDORS
@@ -109,7 +117,7 @@ CREATE POLICY "profiles_delete" ON profiles FOR DELETE
 -- =============================================================================
 CREATE TABLE vendors (
   id         UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  company_id UUID        NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  company_id BIGINT      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   name       TEXT        NOT NULL,
   gstin      TEXT,
   address    TEXT,
@@ -140,7 +148,7 @@ CREATE POLICY "vendors_delete" ON vendors FOR DELETE
 -- =============================================================================
 CREATE TABLE jobs (
   id         UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  company_id UUID        NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  company_id BIGINT      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   client_id  UUID        NOT NULL REFERENCES vendors(id),
   item_name  TEXT        NOT NULL,
   hsn_code   TEXT,
@@ -170,7 +178,7 @@ CREATE POLICY "jobs_delete" ON jobs FOR DELETE
 -- =============================================================================
 CREATE TABLE inbound_dcs (
   id                   UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  company_id           UUID        NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  company_id           BIGINT      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   supplier_id          UUID        NOT NULL REFERENCES vendors(id),
   challan_no           TEXT        NOT NULL,
   challan_date         DATE        NOT NULL DEFAULT CURRENT_DATE,
@@ -209,7 +217,7 @@ CREATE POLICY "inbound_dcs_delete" ON inbound_dcs FOR DELETE
 -- =============================================================================
 CREATE TABLE outbound_dcs (
   id          UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  company_id  UUID        NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  company_id  BIGINT      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   client_id   UUID        NOT NULL REFERENCES vendors(id),
   job_id      UUID        REFERENCES jobs(id),
   dc_no       TEXT        NOT NULL,
@@ -251,7 +259,7 @@ CREATE POLICY "outbound_dcs_delete" ON outbound_dcs FOR DELETE
 -- =============================================================================
 CREATE TABLE product_items (
   id             UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  company_id     UUID        NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  company_id     BIGINT      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   dc_type        TEXT        NOT NULL CHECK (dc_type IN ('inbound', 'outbound')),
   inbound_dc_id  UUID        REFERENCES inbound_dcs(id)  ON DELETE CASCADE,
   outbound_dc_id UUID        REFERENCES outbound_dcs(id) ON DELETE CASCADE,
@@ -291,7 +299,7 @@ CREATE POLICY "product_items_delete" ON product_items FOR DELETE
 -- =============================================================================
 CREATE TABLE production_logs (
   id                   UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  company_id           UUID        NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  company_id           BIGINT      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   job_id               UUID        NOT NULL REFERENCES jobs(id),   -- primary job (first item)
   inbound_dc_id        UUID        REFERENCES inbound_dcs(id),     -- optional raw material link
   -- Aggregate totals
@@ -327,7 +335,7 @@ CREATE POLICY "production_logs_delete" ON production_logs FOR DELETE
 CREATE TABLE production_log_items (
   id                   UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
   log_id               UUID        NOT NULL REFERENCES production_logs(id) ON DELETE CASCADE,
-  company_id           UUID        NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  company_id           BIGINT      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   job_id               UUID        NOT NULL REFERENCES jobs(id),
   material_consumed_kg NUMERIC(12, 3) NOT NULL DEFAULT 0,
   good_qty             INTEGER     NOT NULL DEFAULT 0,
@@ -363,7 +371,7 @@ BEGIN
   INSERT INTO profiles (id, company_id, role, full_name)
   VALUES (
     NEW.id,
-    (NEW.raw_user_meta_data ->> 'company_id')::UUID,
+    (NEW.raw_user_meta_data ->> 'company_id')::BIGINT,
     COALESCE(NEW.raw_user_meta_data ->> 'role', 'supervisor'),
     COALESCE(NEW.raw_user_meta_data ->> 'full_name', NEW.email)
   );

@@ -6,6 +6,12 @@ import { theme } from '../../../constants/theme';
 
 const ITEMS = [
   {
+    route: '/(owner)/misc/company' as const,
+    icon: '🏢',
+    label: 'Company Settings',
+    desc: 'Update company name, GSTIN, address and phone',
+  },
+  {
     route: '/(owner)/misc/vendors' as const,
     icon: '🏭',
     label: 'Vendors',

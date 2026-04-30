@@ -15,6 +15,7 @@ export default function InboundDCsScreen() {
     name:    (profile?.companies as any)?.name    ?? '',
     gstin:   (profile?.companies as any)?.gstin   ?? '',
     address: (profile?.companies as any)?.address ?? '',
+    phone:   (profile?.companies as any)?.phone   ?? '',
   };
   const [records, setRecords] = useState<(InboundDC & { product_items: ProductItem[] })[]>([]);
   const [loading, setLoading] = useState(true);

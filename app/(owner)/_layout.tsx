@@ -63,6 +63,7 @@ export default function OwnerLayout() {
       {/* Hide misc sub-screens — managed by the nested Stack inside misc/ */}
       <Tabs.Screen name="misc/vendors" options={{ href: null }} />
       <Tabs.Screen name="misc/users" options={{ href: null }} />
+      <Tabs.Screen name="misc/company" options={{ href: null }} />
     </Tabs>
   );
 }

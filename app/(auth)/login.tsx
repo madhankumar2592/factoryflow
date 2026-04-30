@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
@@ -10,7 +11,7 @@ import { theme } from '../../constants/theme';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { signIn, loading, profile } = useAuthStore();
+  const { signIn, loading } = useAuthStore();
   const router = useRouter();
 
   async function handleLogin() {
@@ -33,7 +34,7 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={styles.logo}>FactoryFlow</Text>
-          <Text style={styles.subtitle}>Mold Tech Diecasting</Text>
+          <Text style={styles.subtitle}>Factory operations, simplified</Text>
         </View>
 
         <View style={styles.form}>
@@ -65,9 +66,23 @@ export default function LoginScreen() {
             disabled={loading}
             activeOpacity={0.8}
           >
-            <Text style={styles.buttonText}>{loading ? 'SIGNING IN...' : 'LOG IN'}</Text>
+            {loading
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={styles.buttonText}>LOG IN</Text>
+            }
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          style={styles.signupLink}
+          onPress={() => router.push('/(auth)/signup')}
+        >
+          <Text style={styles.signupLinkText}>
+            New to FactoryFlow?{' '}
+            <Text style={styles.signupLinkBold}>Create account</Text>
+          </Text>
+        </TouchableOpacity>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -94,8 +109,6 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSize.sm,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.xs,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
   },
   form: {},
   label: {
@@ -131,5 +144,17 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSize.md,
     fontWeight: theme.fontWeight.bold,
     letterSpacing: 1,
+  },
+  signupLink: {
+    alignItems: 'center',
+    marginTop: theme.spacing.xl,
+  },
+  signupLinkText: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.textSecondary,
+  },
+  signupLinkBold: {
+    color: theme.colors.primary,
+    fontWeight: '700',
   },
 });

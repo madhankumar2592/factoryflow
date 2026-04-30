@@ -33,16 +33,17 @@ export interface ProductionLogItem {
 }
 
 export interface Company {
-  id: string;
+  id: number;
   name: string;
   gstin?: string;
   address?: string;
+  phone?: string;
   created_at: string;
 }
 
 export interface Profile {
   id: string;
-  company_id: string;
+  company_id: number;
   role: UserRole;
   full_name: string;
   companies?: Company;
