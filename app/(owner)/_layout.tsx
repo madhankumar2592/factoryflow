@@ -50,11 +50,12 @@ export default function OwnerLayout() {
         }}
       />
       <Tabs.Screen
-        name="suppliers"
+        name="misc"
         options={{
-          title: 'Suppliers',
-          tabBarLabel: 'Suppliers',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>🏭</Text>,
+          title: 'Settings',
+          tabBarLabel: 'Settings',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>⚙️</Text>,
+          headerShown: false,
         }}
       />
     </Tabs>
