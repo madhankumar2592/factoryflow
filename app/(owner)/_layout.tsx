@@ -49,6 +49,14 @@ export default function OwnerLayout() {
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>📤</Text>,
         }}
       />
+      <Tabs.Screen
+        name="suppliers"
+        options={{
+          title: 'Suppliers',
+          tabBarLabel: 'Suppliers',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>🏭</Text>,
+        }}
+      />
     </Tabs>
   );
 }
